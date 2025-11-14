@@ -7,14 +7,6 @@
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen.svg)]()
 [![Version](https://img.shields.io/badge/Version-1.0.0-orange.svg)]()
 
-```
-   ____                   __  ___           __
-  / __ \____  ___  ____  /  |/  /___  _____/ /_
- / / / / __ \/ _ \/ __ \/ /|_/ / __ \/ ___/ __/
-/ /_/ / /_/ /  __/ / / / /  / / /_/ / /  / /_
-\____/ .___/\___/_/ /_/_/  /_/\____/_/   \__/
-    /_/
-```
 
 > **OpenMusic API** is a robust RESTful API designed for managing music collections. It allows users to create, read, update, and delete albums and songs, with advanced filtering and validation features. Built with Node.js, Express, and PostgreSQL for high performance and scalability. 🎸🎤
 
