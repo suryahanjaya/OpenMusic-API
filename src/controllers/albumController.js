@@ -3,6 +3,7 @@ const { validateAlbum } = require('../validators/albumValidator');
 
 const createAlbum = async (req, res, next) => {
   try {
+    // Validasi akan melempar error jika payload salah
     const payload = await validateAlbum(req.body);
     const albumId = await albumService.addAlbum(payload);
     res.status(201).json({
@@ -17,8 +18,10 @@ const createAlbum = async (req, res, next) => {
 const getAlbum = async (req, res, next) => {
   try {
     const album = await albumService.getAlbumById(req.params.id);
-    if (!album) return res.status(404).json({ status: 'fail', message: 'Album not found' });
-    res.status(200).json({ status: 'success', data: { album } });
+    res.status(200).json({
+      status: 'success',
+      data: { album }
+    });
   } catch (err) {
     next(err);
   }
@@ -27,9 +30,11 @@ const getAlbum = async (req, res, next) => {
 const updateAlbum = async (req, res, next) => {
   try {
     const payload = await validateAlbum(req.body);
-    const updated = await albumService.updateAlbum(req.params.id, payload);
-    if (!updated) return res.status(404).json({ status: 'fail', message: 'Album not found' });
-    res.status(200).json({ status: 'success', message: 'Album updated successfully' });
+    await albumService.updateAlbum(req.params.id, payload);
+    res.status(200).json({
+      status: 'success',
+      message: 'Album updated successfully'
+    });
   } catch (err) {
     next(err);
   }
@@ -37,9 +42,11 @@ const updateAlbum = async (req, res, next) => {
 
 const deleteAlbum = async (req, res, next) => {
   try {
-    const deleted = await albumService.deleteAlbum(req.params.id);
-    if (!deleted) return res.status(404).json({ status: 'fail', message: 'Album not found' });
-    res.status(200).json({ status: 'success', message: 'Album deleted successfully' });
+    await albumService.deleteAlbum(req.params.id);
+    res.status(200).json({
+      status: 'success',
+      message: 'Album deleted successfully'
+    });
   } catch (err) {
     next(err);
   }
