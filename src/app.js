@@ -1,46 +1,67 @@
-const express = require('express');
-const app = express();
-const albumRoutes = require('./routes/albums');
-const songRoutes = require('./routes/songs');
-const ClientError = require('./exceptions/ClientError'); // Import ClientError
+const Hapi = require('@hapi/hapi');
+require('dotenv').config();
 
-app.use(express.json());
+const AlbumsService = require('./services/AlbumsService');
+const SongsService = require('./services/SongsService');
 
-app.use('/albums', albumRoutes);
-app.use('/songs', songRoutes);
+const AlbumsHandler = require('./handlers/AlbumsHandler');
+const SongsHandler = require('./handlers/SongsHandler');
 
-// Global Error Handling Middleware
-app.use((err, req, res, next) => {
-  // Jika error dari Joi (Validation Error)
-  if (err.isJoi) {
-    return res.status(400).json({
-      status: 'fail',
-      message: err.message,
-    });
-  }
+const albumsRoutes = require('./routes/albums');
+const songsRoutes = require('./routes/songs');
 
-  // Jika error adalah ClientError (NotFoundError / InvariantError)
-  if (err instanceof ClientError) {
-    return res.status(err.statusCode).json({
-      status: 'fail',
-      message: err.message,
-    });
-  }
+const ClientError = require('./lib/error/ClientError');
 
-  // Jika Server Error (500)
-  console.error(err); // Log error server ke console untuk debugging
-  return res.status(500).json({
-    status: 'error',
-    message: 'Maaf, terjadi kegagalan pada server kami.',
+const initApp = async () => {
+  const host = process.env.HOST || '0.0.0.0';
+  const port = Number(process.env.PORT) || 5000;
+
+  const server = Hapi.server({ port, host });
+
+  // services & handlers
+  const albumsService = new AlbumsService();
+  const songsService = new SongsService();
+
+  const albumsHandler = new AlbumsHandler(albumsService, require('./validators/albumsValidator'));
+  const songsHandler = new SongsHandler(songsService, require('./validators/songsValidator'));
+
+  server.route(albumsRoutes(albumsHandler));
+  server.route(songsRoutes(songsHandler));
+
+  // global error handling via onPreResponse
+  server.ext('onPreResponse', (request, h) => {
+    const { response } = request;
+
+    if (response instanceof Error) {
+      // client error
+      if (response instanceof ClientError) {
+        const newResponse = h.response({
+          status: 'fail',
+          message: response.message,
+        });
+        newResponse.code(response.statusCode);
+        return newResponse;
+      }
+
+      // hapi internal client errors (e.g. 404)
+      if (!response.isServer) {
+        return h.continue;
+      }
+
+      // server error
+      const newResponse = h.response({
+        status: 'error',
+        message: 'Maaf, terjadi kegagalan pada server kami',
+      });
+      newResponse.code(500);
+      console.error(response);
+      return newResponse;
+    }
+
+    return h.continue;
   });
-});
 
-// 404 Handling untuk route yang tidak terdaftar
-app.use((req, res, next) => {
-  res.status(404).json({
-    status: 'fail',
-    message: 'Resource not found',
-  });
-});
+  return server;
+};
 
-module.exports = app;
+module.exports = initApp;

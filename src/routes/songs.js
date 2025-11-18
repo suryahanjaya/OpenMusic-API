@@ -1,11 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const songController = require('../controllers/songController');
+const routes = (handler) => [
+  { method: 'POST', path: '/songs', handler: (req, h) => handler.postSongHandler(req, h) },
+  { method: 'GET', path: '/songs', handler: (req, h) => handler.getSongsHandler(req, h) },
+  { method: 'GET', path: '/songs/{id}', handler: (req, h) => handler.getSongByIdHandler(req, h) },
+  { method: 'PUT', path: '/songs/{id}', handler: (req, h) => handler.putSongByIdHandler(req, h) },
+  { method: 'DELETE', path: '/songs/{id}', handler: (req, h) => handler.deleteSongByIdHandler(req, h) },
+];
 
-router.post('/', songController.createSong);
-router.get('/', songController.getSongs);
-router.get('/:id', songController.getSong);
-router.put('/:id', songController.updateSong);
-router.delete('/:id', songController.deleteSong);
-
-module.exports = router;
+module.exports = routes;
