@@ -1,4 +1,7 @@
 const autoBind = require('auto-bind');
+const AuthenticationError = require('../lib/error/AuthenticationError');
+const AuthorizationError = require('../lib/error/AuthorizationError');
+const InvariantError = require('../lib/error/InvariantError');
 
 class AuthenticationsHandler {
   constructor(authenticationsService, usersService, tokenManager, validator) {
@@ -11,58 +14,97 @@ class AuthenticationsHandler {
   }
 
   async postAuthenticationHandler(request, h) {
-    this._validator.validateAuthenticationPayload(request.payload);
-    const { username, password } = request.payload;
+    try {
+      this._validator.validateAuthenticationPayload(request.payload);
+      const { username, password } = request.payload;
 
-    const userId = await this._usersService.verifyUserCredential(username, password);
+      const userId = await this._usersService.verifyUserCredential(username, password);
 
-    const accessToken = this._tokenManager.generateAccessToken({ userId });
-    const refreshToken = this._tokenManager.generateRefreshToken({ userId });
+      const accessToken = this._tokenManager.generateAccessToken({ userId });
+      const refreshToken = this._tokenManager.generateRefreshToken({ userId });
 
-    await this._authService.addRefreshToken(refreshToken, userId);
+      await this._authService.addRefreshToken(refreshToken, userId);
 
-    const response = h.response({
-      status: 'success',
-      data: {
-        accessToken,
-        refreshToken,
-      },
-    });
-    response.code(201);
-    return response;
+      return h.response({
+        status: 'success',
+        data: {
+          accessToken,
+          refreshToken,
+        },
+      }).code(201);
+    } catch (error) {
+      if (error instanceof AuthenticationError) {
+        return h.response({
+          status: 'fail',
+          message: error.message,
+        }).code(401);
+      }
+
+      return h.response({
+        status: 'error',
+        message: 'Terjadi kesalahan server',
+      }).code(500);
+    }
   }
 
   async putAuthenticationHandler(request, h) {
-    this._validator.validateRefreshTokenPayload(request.payload);
-    const { refreshToken } = request.payload;
+    try {
+      this._validator.validateRefreshTokenPayload(request.payload);
+      const { refreshToken } = request.payload;
 
-    // verify signature & registered
-    this._tokenManager.verifyRefreshToken(refreshToken);
-    await this._authService.verifyRefreshToken(refreshToken);
+      // verify signature
+      const { userId } = this._tokenManager.verifyRefreshToken(refreshToken);
+      await this._authService.verifyRefreshToken(refreshToken);
 
-    const { userId } = this._tokenManager.verifyRefreshToken(refreshToken);
-    const accessToken = this._tokenManager.generateAccessToken({ userId });
+      const accessToken = this._tokenManager.generateAccessToken({ userId });
 
-    return {
-      status: 'success',
-      data: {
-        accessToken,
-      },
-    };
+      return {
+        status: 'success',
+        data: {
+          accessToken,
+        },
+      };
+    } catch (error) {
+      if (error instanceof InvariantError) {
+        return h.response({
+          status: 'fail',
+          message: error.message,
+        }).code(400);
+      }
+
+      return h.response({
+        status: 'error',
+        message: 'Terjadi kesalahan server',
+      }).code(500);
+    }
   }
 
   async deleteAuthenticationHandler(request, h) {
-    this._validator.validateRefreshTokenPayload(request.payload);
-    const { refreshToken } = request.payload;
+    try {
+      this._validator.validateRefreshTokenPayload(request.payload);
+      const { refreshToken } = request.payload;
 
-    this._tokenManager.verifyRefreshToken(refreshToken);
-    await this._authService.verifyRefreshToken(refreshToken);
-    await this._authService.deleteRefreshToken(refreshToken);
+      this._tokenManager.verifyRefreshToken(refreshToken);
+      await this._authService.verifyRefreshToken(refreshToken);
+      await this._authService.deleteRefreshToken(refreshToken);
 
-    return {
-      status: 'success',
-      message: 'Berhasil menghapus autentikasi',
-    };
+      return {
+        status: 'success',
+        message: 'Berhasil menghapus autentikasi',
+      };
+    } catch (error) {
+      if (error instanceof InvariantError) {
+        return h.response({
+          status: 'fail',
+          message: error.message,
+        }).code(400);
+      }
+
+      return h.response({
+        status: 'error',
+        message: 'Terjadi kesalahan server',
+      }).code(500);
+    }
   }
 }
 

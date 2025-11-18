@@ -15,7 +15,7 @@ class PlaylistSongsHandler {
     const { id: playlistId } = request.params;
     const { id: userId } = request.auth.credentials;
 
-    // verify access
+    // verifikasi akses
     await this._playlistsService.verifyPlaylistAccess(playlistId, userId);
 
     await this._playlistSongsService.addSongToPlaylist(playlistId, songId);
@@ -28,11 +28,23 @@ class PlaylistSongsHandler {
     return response;
   }
 
-  async getPlaylistSongsHandler(request) {
+  async getPlaylistSongsHandler(request, h) {
     const { id: playlistId } = request.params;
     const { id: userId } = request.auth.credentials;
 
-    const playlist = await this._playlistsService.getSongsFromPlaylist(playlistId, userId);
+    // verifikasi akses
+    await this._playlistsService.verifyPlaylistAccess(playlistId, userId);
+
+    const playlist = await this._playlistsService.getSongsFromPlaylist(playlistId);
+
+    if (!playlist) {
+      const response = h.response({
+        status: 'fail',
+        message: 'Playlist tidak ditemukan',
+      });
+      response.code(404);
+      return response;
+    }
 
     return {
       status: 'success',
@@ -42,19 +54,20 @@ class PlaylistSongsHandler {
     };
   }
 
-  async deletePlaylistSongHandler(request) {
-      this._validator.validatePlaylistSongPayload(request.payload);
-      const { songId } = request.payload;
-      const { id: playlistId } = request.params;
-      const { id: userId } = request.auth.credentials;
+  async deletePlaylistSongHandler(request, h) {
+    this._validator.validatePlaylistSongPayload(request.payload);
+    const { songId } = request.payload;
+    const { id: playlistId } = request.params;
+    const { id: userId } = request.auth.credentials;
 
-      await this._playlistsService.verifyPlaylistAccess(playlistId, userId);
-      await this._playlistSongsService.removeSongFromPlaylist(playlistId, songId);
+    // verifikasi akses
+    await this._playlistsService.verifyPlaylistAccess(playlistId, userId);
+    await this._playlistSongsService.removeSongFromPlaylist(playlistId, songId);
 
-      return {
-        status: 'success',
-        message: 'Lagu berhasil dihapus dari playlist',
-      };
+    return {
+      status: 'success',
+      message: 'Lagu berhasil dihapus dari playlist',
+    };
   }
 }
 

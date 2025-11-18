@@ -6,7 +6,16 @@ class PlaylistSongsService {
   async addSongToPlaylist(playlistId, songId) {
     console.log('Memasukkan lagu ke playlist:', { playlistId, songId });
 
-    // cek dulu apakah lagu sudah ada
+    // cek apakah lagu ada di tabel songs
+    const songCheck = await pool.query(
+      'SELECT id FROM songs WHERE id = $1',
+      [songId]
+    );
+    if (!songCheck.rowCount) {
+      throw new InvariantError('Lagu tidak ditemukan di database');
+    }
+
+    // cek dulu apakah lagu sudah ada di playlist
     const check = await pool.query(
       'SELECT id FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2',
       [playlistId, songId]

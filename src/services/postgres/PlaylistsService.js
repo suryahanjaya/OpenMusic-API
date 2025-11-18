@@ -1,8 +1,10 @@
 const { nanoid } = require('nanoid');
 const pool = require('../../db/pool');
 const InvariantError = require('../../lib/error/InvariantError');
+const AuthorizationError = require('../../lib/error/AuthorizationError');
 
 class PlaylistsService {
+  // Membuat playlist baru
   async createPlaylist(name, owner) {
     const id = `playlist-${nanoid(16)}`;
 
@@ -14,6 +16,7 @@ class PlaylistsService {
     return id;
   }
 
+  // Ambil semua playlist milik user
   async getPlaylists(owner) {
     const q = await pool.query(
       `SELECT playlists.id, playlists.name, users.username
@@ -26,6 +29,7 @@ class PlaylistsService {
     return q.rows;
   }
 
+  // Verifikasi owner playlist
   async verifyPlaylistOwner(id, owner) {
     const q = await pool.query(
       'SELECT owner FROM playlists WHERE id = $1',
@@ -33,14 +37,15 @@ class PlaylistsService {
     );
 
     if (q.rowCount === 0) {
-      throw new InvariantError('playlist tidak ditemukan');
+      throw new InvariantError('Playlist tidak ditemukan');
     }
 
     if (q.rows[0].owner !== owner) {
-      throw new InvariantError('akses ditolak');
+      throw new AuthorizationError('Akses ditolak');
     }
   }
 
+  // Verifikasi akses playlist (bisa owner)
   async verifyPlaylistAccess(playlistId, userId) {
     const q = await pool.query(
       'SELECT owner FROM playlists WHERE id = $1',
@@ -52,42 +57,43 @@ class PlaylistsService {
     }
 
     if (q.rows[0].owner !== userId) {
-      throw new InvariantError('Akses ditolak');
+      throw new AuthorizationError('Akses ditolak');
     }
   }
 
-    async getSongsFromPlaylist(playlistId) {
+  // Ambil semua lagu dalam playlist
+  async getSongsFromPlaylist(playlistId) {
     const q = await pool.query(
       `SELECT songs.id, songs.title, songs.performer
-      FROM songs
-      JOIN playlist_songs ON songs.id = playlist_songs.song_id
-      WHERE playlist_songs.playlist_id = $1`,
+       FROM songs
+       JOIN playlist_songs ON songs.id = playlist_songs.song_id
+       WHERE playlist_songs.playlist_id = $1`,
       [playlistId]
     );
 
     return q.rows;
   }
-  
-  async removeSongFromPlaylist(playlistId, songId) {
-    const query = {
-      text: 'DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2 RETURNING id',
-      values: [playlistId, songId],
-    };
 
-    const result = await pool.query(query);
+  // Hapus lagu dari playlist
+  async removeSongFromPlaylist(playlistId, songId) {
+    const result = await pool.query(
+      'DELETE FROM playlist_songs WHERE playlist_id = $1 AND song_id = $2 RETURNING id',
+      [playlistId, songId]
+    );
 
     if (!result.rowCount) {
       throw new InvariantError('Lagu gagal dihapus dari playlist. Pastikan lagu ada di playlist.');
     }
   }
-  async deletePlaylistById(id) {
-    const query = {
-      text: 'DELETE FROM playlists WHERE id = $1',
-      values: [id],
-    };
 
-    const result = await pool.query(query);
-    if (result.rowCount === 0) {
+  // Hapus playlist
+  async deletePlaylistById(id) {
+    const result = await pool.query(
+      'DELETE FROM playlists WHERE id = $1',
+      [id]
+    );
+
+    if (!result.rowCount) {
       throw new InvariantError('Playlist gagal dihapus');
     }
   }
