@@ -1,7 +1,7 @@
-const pool = require('../db/pool');
-const { generateId } = require('../utils/idGenerator');
-const InvariantError = require('../lib/error/InvariantError');
-const NotFoundError = require('../lib/error/ClientError'); // reuse ClientError with 404
+const pool = require('../../db/pool');
+const { generateId } = require('../../utils/idGenerator');
+const InvariantError = require('../../lib/error/InvariantError');
+const NotFoundError = require('../../lib/error/ClientError'); // reuse ClientError with 404
 
 class AlbumsService {
   async addAlbum({ name, year }) {

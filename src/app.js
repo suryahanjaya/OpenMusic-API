@@ -1,61 +1,140 @@
-const Hapi = require('@hapi/hapi');
 require('dotenv').config();
+const Hapi = require('@hapi/hapi');
+const Jwt = require('@hapi/jwt');
 
-const AlbumsService = require('./services/AlbumsService');
-const SongsService = require('./services/SongsService');
+/* Database Pool */
+const pool = require('./db/pool');
 
+/* Services */
+const AlbumsService = require('./services/postgres/AlbumsService');
+const SongsService = require('./services/postgres/SongsService');
+const UsersService = require('./services/postgres/UsersService');
+const AuthenticationsService = require('./services/postgres/AuthenticationsService');
+const PlaylistsService = require('./services/postgres/PlaylistsService');
+const PlaylistSongsService = require('./services/postgres/PlaylistSongsService');
+const CollaborationsService = require('./services/postgres/CollaborationsService');
+const PlaylistActivitiesService = require('./services/postgres/PlaylistActivitiesService');
+
+/* Validators */
+const AlbumsValidator = require('./validators/albumsValidator');
+const SongsValidator = require('./validators/songsValidator');
+const UsersValidator = require('./validators/usersValidator');
+const AuthenticationsValidator = require('./validators/authenticationsValidator');
+const PlaylistsValidator = require('./validators/playlistsValidator');
+const PlaylistSongsValidator = require('./validators/playlistSongsValidator');
+const CollaborationsValidator = require('./validators/collaborationsValidator');
+
+/* Handlers */
 const AlbumsHandler = require('./handlers/AlbumsHandler');
 const SongsHandler = require('./handlers/SongsHandler');
+const UsersHandler = require('./handlers/UsersHandler');
+const AuthenticationsHandler = require('./handlers/AuthenticationsHandler');
+const PlaylistsHandler = require('./handlers/PlaylistsHandler');
+const PlaylistSongsHandler = require('./handlers/PlaylistSongsHandler');
+const CollaborationsHandler = require('./handlers/CollaborationsHandler');
+const PlaylistActivitiesHandler = require('./handlers/PlaylistActivitiesHandler');
 
+/* Routes */
 const albumsRoutes = require('./routes/albums');
 const songsRoutes = require('./routes/songs');
+const usersRoutes = require('./routes/users');
+const authenticationsRoutes = require('./routes/authentications');
+const playlistsRoutes = require('./routes/playlists');
+const playlistSongsRoutes = require('./routes/playlistSongs');
+const collaborationsRoutes = require('./routes/collaborations');
+const playlistActivitiesRoutes = require('./routes/playlistActivities');
 
+/* Utils */
+const TokenManager = require('./utils/tokenManager');
+
+/* Errors */
 const ClientError = require('./lib/error/ClientError');
 
-const initApp = async () => {
-  const host = process.env.HOST || '0.0.0.0';
-  const port = Number(process.env.PORT) || 5000;
+const createServer = async () => {
+  const server = Hapi.server({
+    port: process.env.PORT || 5000,
+    host: process.env.HOST || 'localhost',
+    routes: { cors: { origin: ['*'] } },
+  });
 
-  const server = Hapi.server({ port, host });
+  // register jwt plugin
+  await server.register(Jwt);
 
-  // services & handlers
+  // instantiate services
   const albumsService = new AlbumsService();
   const songsService = new SongsService();
+  const usersService = new UsersService();
+  const authenticationsService = new AuthenticationsService();
+  const playlistsService = new PlaylistsService();
+  const playlistSongsService = new PlaylistSongsService();
+  const collaborationsService = new CollaborationsService();
+  const playlistActivitiesService = new PlaylistActivitiesService();
 
-  const albumsHandler = new AlbumsHandler(albumsService, require('./validators/albumsValidator'));
-  const songsHandler = new SongsHandler(songsService, require('./validators/songsValidator'));
+  // instantiate handlers
+  const albumsHandler = new AlbumsHandler(albumsService, AlbumsValidator);
+  const songsHandler = new SongsHandler(songsService, SongsValidator);
+  const usersHandler = new UsersHandler(usersService, UsersValidator);
+  const authenticationsHandler = new AuthenticationsHandler(
+    authenticationsService, usersService, TokenManager, AuthenticationsValidator
+  );
+  const playlistsHandler = new PlaylistsHandler(playlistsService, PlaylistsValidator);
+  const playlistSongsHandler = new PlaylistSongsHandler(
+    playlistSongsService, playlistsService, PlaylistSongsValidator
+  );
+  const collaborationsHandler = new CollaborationsHandler(
+    collaborationsService, playlistsService, CollaborationsValidator
+  );
+  const playlistActivitiesHandler = new PlaylistActivitiesHandler(
+    playlistActivitiesService, playlistsService
+  );
 
+  // auth strategy
+  server.auth.strategy('openmusic_jwt', 'jwt', {
+    keys: process.env.ACCESS_TOKEN_KEY,
+    verify: {
+      aud: false,
+      iss: false,
+      sub: false,
+      maxAgeSec: process.env.ACCESS_TOKEN_AGE
+        ? parseInt(process.env.ACCESS_TOKEN_AGE, 10)
+        : 3600,
+    },
+    validate: (artifacts) => ({
+      isValid: true,
+      credentials: { id: artifacts.decoded.payload.userId },
+    }),
+  });
+
+  // register routes
   server.route(albumsRoutes(albumsHandler));
   server.route(songsRoutes(songsHandler));
+  server.route(usersRoutes(usersHandler));
+  server.route(authenticationsRoutes(authenticationsHandler));
+  server.route(playlistsRoutes(playlistsHandler));
+  server.route(playlistSongsRoutes(playlistSongsHandler));
+  server.route(collaborationsRoutes(collaborationsHandler));
+  server.route(playlistActivitiesRoutes(playlistActivitiesHandler));
 
   // global error handling via onPreResponse
   server.ext('onPreResponse', (request, h) => {
     const { response } = request;
 
     if (response instanceof Error) {
-      // client error
       if (response instanceof ClientError) {
-        const newResponse = h.response({
-          status: 'fail',
-          message: response.message,
-        });
-        newResponse.code(response.statusCode);
-        return newResponse;
+        const res = h.response({ status: 'fail', message: response.message });
+        res.code(response.statusCode);
+        return res;
       }
 
-      // hapi internal client errors (e.g. 404)
-      if (!response.isServer) {
-        return h.continue;
-      }
+      if (!response.isServer) return h.continue;
 
-      // server error
-      const newResponse = h.response({
-        status: 'error',
-        message: 'Maaf, terjadi kegagalan pada server kami',
-      });
-      newResponse.code(500);
       console.error(response);
-      return newResponse;
+      const res = h.response({
+        status: 'error',
+        message: 'Maaf, terjadi kegagalan pada server kami.',
+      });
+      res.code(500);
+      return res;
     }
 
     return h.continue;
@@ -64,4 +143,4 @@ const initApp = async () => {
   return server;
 };
 
-module.exports = initApp;
+module.exports = createServer;

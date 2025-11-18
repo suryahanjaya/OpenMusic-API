@@ -1,7 +1,7 @@
-const pool = require('../db/pool');
-const { generateId } = require('../utils/idGenerator');
-const InvariantError = require('../lib/error/InvariantError');
-const NotFoundError = require('../lib/error/ClientError');
+const pool = require('../../db/pool');
+const { generateId } = require('../../utils/idGenerator');
+const InvariantError = require('../../lib/error/InvariantError');
+const NotFoundError = require('../../lib/error/ClientError');
 
 class SongsService {
   async addSong({ title, year, performer, genre, duration, albumId }) {
