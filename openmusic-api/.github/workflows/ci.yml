@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: npm ci
+      
+    - name: Run Lint
+      run: npm run lint
+      
+    # Setup Postgres for tests
+    - name: Setup PostgreSQL
+      uses: harmon758/postgresql-action@v1
+      with:
+        postgresql version: '14'
+        postgresql db: 'openmusic_test'
+        postgresql user: 'postgres'
+        postgresql password: 'password'
+    
+    - name: Wait for PostgreSQL
+      run: |
+        while ! pg_isready -h localhost -p 5432 -U postgres; do
+          sleep 1
+        done
+
+    - name: Run Migrations
+      run: npm run migrate
+      env:
+        PGUSER: postgres
+        PGHOST: localhost
+        PGPASSWORD: password
+        PGDATABASE: openmusic_test
+        PGPORT: 5432
+
+    - name: Run Tests
+      run: npm test
+      env:
+        CI: true
+        PGUSER: postgres
+        PGHOST: localhost
+        PGPASSWORD: password
+        PGDATABASE: openmusic_test
+        PGPORT: 5432
+        ACCESS_TOKEN_KEY: test-access-key
+        REFRESH_TOKEN_KEY: test-refresh-key
+        ACCESS_TOKEN_AGE: 3600

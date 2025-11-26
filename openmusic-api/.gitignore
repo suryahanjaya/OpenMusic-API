@@ -1,0 +1,7 @@
+node_modules
+logs/
+coverage/
+test_debug.txt
+auth_debug.txt
+auth_error.txt
+auth_fail.txt

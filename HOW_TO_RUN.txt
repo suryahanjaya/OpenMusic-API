@@ -1,0 +1,54 @@
+HOW TO RUN OPENMUSIC PROJECT
+============================
+
+Follow these steps strictly in order to run the application.
+
+PREREQUISITES:
+- Ensure Docker Desktop is running.
+- Ensure Node.js is installed.
+
+STEP 1: START INFRASTRUCTURE (PostgreSQL, Redis, RabbitMQ)
+----------------------------------------------------------
+1. Open a new terminal (Terminal 1).
+2. Run the following commands:
+
+   cd "c:\Users\ASUS ZENBOOK\Desktop\Asah\openmusic-submission\openmusic-api"
+   docker-compose up -d postgres redis rabbitmq
+
+   (Wait for the containers to start)
+
+STEP 2: RUN DATABASE MIGRATIONS
+-------------------------------
+1. Still in Terminal 1 (or any terminal in the api folder).
+2. Run the following command to create the database tables:
+
+   cd "c:\Users\ASUS ZENBOOK\Desktop\Asah\openmusic-submission\openmusic-api"
+   npm run migrate
+
+STEP 3: RUN THE API SERVER
+--------------------------
+1. Open a NEW terminal (Terminal 2).
+2. Run the following commands to start the main API:
+
+   cd "c:\Users\ASUS ZENBOOK\Desktop\Asah\openmusic-submission\openmusic-api"
+   npm run dev
+
+   (You should see "Server running on http://localhost:5000")
+
+STEP 4: RUN THE CONSUMER
+------------------------
+1. Open a NEW terminal (Terminal 3).
+2. Run the following commands to start the message consumer:
+
+   cd "c:\Users\ASUS ZENBOOK\Desktop\Asah\openmusic-submission\openmusic-consumer"
+   npm run dev
+
+   (You should see "Consumer service is running")
+
+STEP 5: RUN TESTS (OPTIONAL)
+----------------------------
+1. If you want to run the automated test suite.
+2. Open a terminal and run:
+
+   cd "c:\Users\ASUS ZENBOOK\Desktop\Asah\openmusic-submission\openmusic-api"
+   npm test
